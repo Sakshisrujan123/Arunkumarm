@@ -21,11 +21,15 @@ async function startServer() {
   app.use(express.json());
 
   // API Route: Create Razorpay Order
-  app.post("/api/payment/order", async (req, res) => {
+  app.post("/api/create-order", async (req, res) => {
     const { amount } = req.body;
 
+    if (!amount || amount < 1) {
+      return res.status(400).json({ error: "Amount must be at least 1 INR" });
+    }
+
     const options = {
-      amount: amount * 100, // Amount in paise (100 paise = 1 INR)
+      amount: Math.round(amount * 100), // Amount in paise
       currency: "INR",
       receipt: shortid.generate(),
     };
@@ -40,6 +44,26 @@ async function startServer() {
     } catch (error) {
       console.error("Razorpay Order Error:", error);
       res.status(500).json({ error: "Failed to create payment order" });
+    }
+  });
+
+  // API Route: Verify Payment Signature
+  app.post("/api/verify-payment", async (req, res) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: "Missing required payment fields" });
+    }
+
+    const crypto = await import("crypto");
+    const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "");
+    hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+    const generated_signature = hmac.digest("hex");
+
+    if (generated_signature === razorpay_signature) {
+      res.json({ success: true, message: "Payment verified successfully" });
+    } else {
+      res.status(400).json({ success: false, message: "Invalid signature" });
     }
   });
 

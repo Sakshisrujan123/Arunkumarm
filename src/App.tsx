@@ -84,7 +84,7 @@ export default function App() {
 
     // Create Order on Server
     try {
-      const data = await fetch("/api/payment/order", {
+      const data = await fetch("/api/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: paymentAmount }),
@@ -97,14 +97,35 @@ export default function App() {
         order_id: data.id,
         name: "PaperQuest AI",
         description: `QP for ${formData.subject} - ${formData.grade}`,
-        image: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
-        handler: function (response: any) {
-          // This runs on successful payment
-          console.log("Payment Successful:", response.razorpay_payment_id);
-          setIsPaid(true);
-          setShowPayment(false);
-          setIsPaying(false);
-          alert("Payment Successful! Your paper is now ready for download.");
+        image: "https://ais-pre-h4kaxril7qytu4z2o3snej-898901038622.asia-southeast1.run.app/favicon.ico",
+        handler: async function (response: any) {
+          // This runs on successful payment modal completion
+          // Now we must verify it on the server
+          try {
+            const verifyRes = await fetch("/api/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            }).then((t) => t.json());
+
+            if (verifyRes.success) {
+              setIsPaid(true);
+              setShowPayment(false);
+              setIsPaying(false);
+              alert("Payment Verified! Your paper is now ready for download.");
+            } else {
+              alert("Payment verification failed: " + verifyRes.message);
+              setIsPaying(false);
+            }
+          } catch (err) {
+            console.error("Verification Error:", err);
+            alert("Error verifying payment.");
+            setIsPaying(false);
+          }
         },
         prefill: {
           name: "Educator",
