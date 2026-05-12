@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+.document-container {
+  color: #000;
+  line-height: 1.5;
+  background-color: #fff;
+}
+
+.document-container h1, 
+.document-container h2, 
+.document-container h3 {
+  color: #000;
+}
+
+.document-container p {
+  margin-bottom: 0.5rem;
+}
+
+/* Print simulation styles */
+@media print {
+  body {
+    background: white;
+  }
+  .no-print {
+    display: none;
+  }
+}
+
+/* Compact layout for questions as requested */
+.paper-content .section {
+  page-break-inside: avoid;
+}
+
+.paper-content p {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+}
