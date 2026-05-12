@@ -22,7 +22,38 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } fro
 import { saveAs } from "file-saver";
 
 const GRADES = Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`);
-const SUBJECTS = ["Science", "Maths", "Social Science", "English", "Hindi", "Sanskrit", "Kannada", "Marathi", "Telugu", "Tamil", "Malayalam", "Gujarati", "Bengali", "Odia", "Punjabi"];
+const SUBJECTS = [
+  "Science", 
+  "Maths", 
+  "Social Science", 
+  "English", 
+  "Physics", 
+  "Chemistry", 
+  "Biology", 
+  "Zoology", 
+  "Botany", 
+  "Economics", 
+  "History", 
+  "Geography", 
+  "Political Science", 
+  "Business Studies", 
+  "Accountancy", 
+  "Psychology", 
+  "Sociology", 
+  "Computer Science", 
+  "General Knowledge",
+  "Hindi", 
+  "Sanskrit", 
+  "Kannada", 
+  "Marathi", 
+  "Telugu", 
+  "Tamil", 
+  "Malayalam", 
+  "Gujarati", 
+  "Bengali", 
+  "Odia", 
+  "Punjabi"
+];
 const BOARDS = ["CBSE", "ICSE", "State Board (Karnataka)", "State Board (Maharashtra)", "State Board (Delhi)", "Other State Boards"];
 const LANGUAGES = ["English", "Hindi", "Kannada", "Marathi", "Telugu", "Tamil", "Malayalam", "Gujarati", "Bengali", "Odia", "Punjabi"];
 const QUESTION_TYPES = [
@@ -43,11 +74,12 @@ export default function App() {
     schoolName: "",
     grade: "Grade 10",
     subject: "Science",
+    topic: "",
     board: "CBSE",
     language: "English",
     totalMarks: 80,
     timeAllowed: "3 Hours",
-    questionTypes: ["MCQ", "VSA", "SA2", "SA3", "VLA5"],
+    questionTypes: QUESTION_TYPES.map(t => ({ ...t, count: t.id === "MCQ" ? 10 : (t.id === "VLA5" ? 2 : 5) })),
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -84,11 +116,17 @@ export default function App() {
 
     // Create Order on Server
     try {
-      const data = await fetch("/api/create-order", {
+      const response = await fetch("/api/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: paymentAmount }),
-      }).then((t) => t.json());
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Failed to create payment order");
+      }
 
       const options = {
         key: process.env.RAZORPAY_KEY_ID || "rzp_test_placeholder",
@@ -346,6 +384,19 @@ export default function App() {
                         </select>
                       </div>
                     </section>
+                    <section>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Topic / Concept / Chapter (Optional)</label>
+                      <div className="relative">
+                        <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Newton's Laws of Motion"
+                          className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black"
+                          value={formData.topic}
+                          onChange={(e) => setFormData({...formData, topic: e.target.value})}
+                        />
+                      </div>
+                    </section>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -354,8 +405,11 @@ export default function App() {
                       <input 
                         type="number" 
                         className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black"
-                        value={formData.totalMarks}
-                        onChange={(e) => setFormData({...formData, totalMarks: parseInt(e.target.value)})}
+                        value={isNaN(formData.totalMarks) ? "" : formData.totalMarks}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setFormData({...formData, totalMarks: isNaN(val) ? 0 : val});
+                        }}
                       />
                     </section>
                     <section>
@@ -373,23 +427,27 @@ export default function App() {
                   </div>
 
                   <section>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 block">Question Types Inclusion</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {QUESTION_TYPES.map((type) => (
-                        <label key={type.id} className="flex items-center gap-3 p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-all">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 block">Question Distribution (Quantities)</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {formData.questionTypes.map((type, idx) => (
+                        <div key={type.id} className="flex items-center gap-3 p-4 rounded-2xl bg-gray-50 border border-transparent hover:border-gray-200 transition-all">
+                          <div className="flex-1">
+                            <span className="text-sm font-bold block mb-1">{type.label}</span>
+                            <span className="text-[10px] text-gray-400 uppercase">Input Quantity Below</span>
+                          </div>
                           <input 
-                            type="checkbox" 
-                            className="w-5 h-5 accent-black rounded border-none"
-                            checked={formData.questionTypes.includes(type.id)}
+                            type="number" 
+                            min="0"
+                            max="50"
+                            className="w-16 px-2 py-2 bg-white border border-gray-200 rounded-xl text-center font-bold focus:ring-2 focus:ring-black"
+                            value={type.count}
                             onChange={(e) => {
-                              const newTypes = e.target.checked 
-                                ? [...formData.questionTypes, type.id]
-                                : formData.questionTypes.filter(t => t !== type.id);
+                              const newTypes = [...formData.questionTypes];
+                              newTypes[idx].count = parseInt(e.target.value) || 0;
                               setFormData({...formData, questionTypes: newTypes});
                             }}
                           />
-                          <span className="text-sm font-medium">{type.label}</span>
-                        </label>
+                        </div>
                       ))}
                     </div>
                   </section>
@@ -413,6 +471,12 @@ export default function App() {
                       <span className="text-gray-500">Language</span>
                       <span className="font-bold">{formData.language}</span>
                     </div>
+                    {formData.topic && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Topic</span>
+                        <span className="font-bold truncate max-w-[150px]">{formData.topic}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm pt-4 border-t border-gray-100">
                       <span className="text-gray-500">Service Fee</span>
                       <span className="font-bold text-emerald-600">₹{paymentAmount}</span>

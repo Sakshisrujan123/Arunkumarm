@@ -4,14 +4,32 @@ import path from "path";
 import Razorpay from "razorpay";
 import shortid from "shortid";
 import cors from "cors";
+import dotenv from "dotenv";
 
-// Initialize Razorpay
-// Note: In production, ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET 
-// are added to your environment variables.
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_placeholder",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "placeholder_secret",
-});
+// Load environment variables
+dotenv.config();
+
+// Initialize Razorpay lazily to ensure environment variables are loaded
+let razorpayInstance: Razorpay | null = null;
+
+function getRazorpay() {
+  if (!razorpayInstance) {
+    const key_id = process.env.RAZORPAY_KEY_ID;
+    const key_secret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!key_id || key_id.includes("placeholder") || !key_secret || key_secret.includes("placeholder")) {
+      console.error("CRITICAL: Razorpay API keys are missing or invalid in environment variables.");
+    } else {
+      console.log(`Razorpay keys detected: ID starts with ${key_id.substring(0, 8)}..., Secret length is ${key_secret.length}`);
+    }
+
+    razorpayInstance = new Razorpay({
+      key_id: key_id || "invalid_key",
+      key_secret: key_secret || "invalid_secret",
+    });
+  }
+  return razorpayInstance;
+}
 
 async function startServer() {
   const app = express();
@@ -23,11 +41,13 @@ async function startServer() {
   // API Route: Create Razorpay Order
   app.post("/api/create-order", async (req, res) => {
     const { amount } = req.body;
+    console.log(`Order creation requested for amount: ${amount} INR`);
 
     if (!amount || amount < 1) {
       return res.status(400).json({ error: "Amount must be at least 1 INR" });
     }
 
+    const razorpay = getRazorpay();
     const options = {
       amount: Math.round(amount * 100), // Amount in paise
       currency: "INR",
@@ -41,9 +61,10 @@ async function startServer() {
         currency: response.currency,
         amount: response.amount,
       });
-    } catch (error) {
-      console.error("Razorpay Order Error:", error);
-      res.status(500).json({ error: "Failed to create payment order" });
+    } catch (error: any) {
+      console.error("Razorpay Order Error:", JSON.stringify(error, null, 2));
+      const description = error?.error?.description || "Authentication failed";
+      res.status(500).json({ error: `Razorpay Error: ${description}. Please ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are correctly configured in the Secrets panel.` });
     }
   });
 
@@ -55,8 +76,9 @@ async function startServer() {
       return res.status(400).json({ error: "Missing required payment fields" });
     }
 
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || "";
     const crypto = await import("crypto");
-    const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "");
+    const hmac = crypto.createHmac("sha256", key_secret);
     hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
     const generated_signature = hmac.digest("hex");
 

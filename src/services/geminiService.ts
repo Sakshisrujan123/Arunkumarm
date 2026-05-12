@@ -34,10 +34,16 @@ export async function generateQuestionPaper(config: {
   language: string;
   totalMarks: number;
   timeAllowed: string;
-  questionTypes: string[];
+  questionTypes: { id: string; label: string; count: number }[];
+  topic?: string;
 }): Promise<QuestionPaper> {
   const model = "gemini-3.1-pro-preview";
   
+  const questionDistribution = config.questionTypes
+    .filter(q => q.count > 0)
+    .map(q => `${q.count} x ${q.label}`)
+    .join(", ");
+
   const prompt = `Generate a professional school question paper with the following details:
 - School: ${config.schoolName}
 - Grade: ${config.grade}
@@ -46,7 +52,8 @@ export async function generateQuestionPaper(config: {
 - Language: ${config.language}
 - Total Marks: ${config.totalMarks}
 - Time: ${config.timeAllowed}
-- Question Types to include: ${config.questionTypes.join(", ")}
+- Question Distribution: ${questionDistribution}
+${config.topic ? `- Specific Topic/Concept/Chapter: ${config.topic}` : ""}
 
 Strictly follow the mark distribution. Ensure the difficulty level matches the grade and board standards.
 Include a complete solution key at the end.
