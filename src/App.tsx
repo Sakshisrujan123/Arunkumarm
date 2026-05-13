@@ -21,10 +21,23 @@ import html2canvas from "html2canvas";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
 import { saveAs } from "file-saver";
 
-const GRADES = Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`);
+const GRADES = [
+  ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`),
+  "B.A. (Bachelor of Arts)",
+  "B.Com (Bachelor of Commerce)",
+  "B.Sc (Bachelor of Science)",
+  "M.A. (Master of Arts)",
+  "M.Sc (Master of Science)",
+  "B.Ed (Bachelor of Education)",
+  "M.Ed (Master of Education)",
+  "BBA (Bachelor of Business Administration)",
+  "MBA (Master of Business Administration)"
+];
 const SUBJECTS = [
   "Science", 
   "Maths", 
+  "MAT (Mental Ability Test)",
+  "SAT (Scholastic Aptitude Test)",
   "Social Science", 
   "English", 
   "Physics", 
@@ -40,8 +53,28 @@ const SUBJECTS = [
   "Accountancy", 
   "Psychology", 
   "Sociology", 
+  "Statistics",
+  "Information Technology (IT)",
+  "Marketing Management",
+  "Human Resource Management",
+  "Operations Management",
+  "Organizational Behavior",
+  "Business Law",
+  "Entrepreneurship",
   "Computer Science", 
   "General Knowledge",
+  "Financial Accounting",
+  "Cost Accounting",
+  "Principles of Management",
+  "Educational Psychology",
+  "Pedagogy of Science",
+  "Curriculum and Instruction",
+  "Statistical Mechanics",
+  "Quantum Physics",
+  "Organic Chemistry",
+  "Digital Marketing",
+  "Microeconomics",
+  "Macroeconomics",
   "Hindi", 
   "Sanskrit", 
   "Kannada", 
@@ -54,7 +87,23 @@ const SUBJECTS = [
   "Odia", 
   "Punjabi"
 ];
-const BOARDS = ["CBSE", "ICSE", "State Board (Karnataka)", "State Board (Maharashtra)", "State Board (Delhi)", "Other State Boards"];
+const BOARDS = [
+  "CBSE", 
+  "ICSE", 
+  "State Board (Karnataka)", 
+  "State Board (Maharashtra)", 
+  "State Board (Delhi)", 
+  "Other State Boards",
+  "NTSE",
+  "NMMS",
+  "Navodaya Entrance",
+  "Sainik School Entrance",
+  "NEET",
+  "JEE Prelims",
+  "JEE Advanced",
+  "KCET",
+  "KTET"
+];
 const LANGUAGES = ["English", "Hindi", "Kannada", "Marathi", "Telugu", "Tamil", "Malayalam", "Gujarati", "Bengali", "Odia", "Punjabi"];
 const QUESTION_TYPES = [
   { id: "MCQ", label: "MCQ (Multiple Choice Questions)" },
@@ -73,7 +122,7 @@ export default function App() {
   const [formData, setFormData] = useState({
     schoolName: "",
     grade: "Grade 10",
-    subject: "Science",
+    subjects: ["Science"],
     topic: "",
     board: "CBSE",
     language: "English",
@@ -88,6 +137,14 @@ export default function App() {
   const [isPaid, setIsPaid] = useState(false);
   const [activeTab, setActiveTab] = useState<"form" | "preview" | "solutions">("form");
   const [isPaying, setIsPaying] = useState(false);
+  const [config, setConfig] = useState<{ razorpayKeyId: string | null; isConfigured: boolean } | null>(null);
+
+  React.useEffect(() => {
+    fetch("/api/config")
+      .then(res => res.json())
+      .then(data => setConfig(data))
+      .catch(err => console.error("Config fetch failed", err));
+  }, []);
 
   const paperRef = useRef<HTMLDivElement>(null);
   const solutionRef = useRef<HTMLDivElement>(null);
@@ -129,13 +186,13 @@ export default function App() {
       }
 
       const options = {
-        key: process.env.RAZORPAY_KEY_ID || "rzp_test_placeholder",
+        key: config?.razorpayKeyId || "rzp_test_placeholder",
         currency: data.currency,
         amount: data.amount.toString(),
         order_id: data.id,
         name: "PaperQuest AI",
-        description: `QP for ${formData.subject} - ${formData.grade}`,
-        image: "https://ais-pre-h4kaxril7qytu4z2o3snej-898901038622.asia-southeast1.run.app/favicon.ico",
+        description: `QP for ${formData.subjects.join(", ")} - ${formData.grade}`,
+        image: "/favicon.ico",
         handler: async function (response: any) {
           // This runs on successful payment modal completion
           // Now we must verify it on the server
@@ -234,7 +291,7 @@ export default function App() {
             new Paragraph({
               alignment: AlignmentType.CENTER,
               children: [
-                new TextRun({ text: `Subject: ${generatedPaper.subject} | Grade: ${generatedPaper.grade}`, bold: true }),
+                new TextRun({ text: `Subject(s): ${generatedPaper.subject} | Grade: ${generatedPaper.grade}`, bold: true }),
               ],
             }),
             new Paragraph({
@@ -264,7 +321,7 @@ export default function App() {
     });
 
     const blob = await Packer.toBlob(doc);
-    saveAs(blob, `${generatedPaper.subject}_QP.docx`);
+    saveAs(blob, `${generatedPaper.subject.replace(/, /g, "_")}_QP.docx`);
   };
 
   return (
@@ -361,15 +418,30 @@ export default function App() {
                         {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
                       </select>
                     </section>
-                    <section>
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Subject</label>
-                      <select 
-                        className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black"
-                        value={formData.subject}
-                        onChange={(e) => setFormData({...formData, subject: e.target.value})}
-                      >
-                        {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                    <section className="md:col-span-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Subjects (Select Multiple for Mixed Paper)</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 bg-gray-50 p-4 rounded-2xl max-h-60 overflow-y-auto border border-gray-100">
+                        {SUBJECTS.map(s => (
+                          <label key={s} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white hover:shadow-sm cursor-pointer transition-all group">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-gray-300 text-black focus:ring-black"
+                              checked={formData.subjects.includes(s)}
+                              onChange={(e) => {
+                                let newSubjects = [...formData.subjects];
+                                if (e.target.checked) {
+                                  newSubjects.push(s);
+                                } else {
+                                  newSubjects = newSubjects.filter(sub => sub !== s);
+                                }
+                                if (newSubjects.length === 0) newSubjects = [s]; // Keep at least one
+                                setFormData({...formData, subjects: newSubjects});
+                              }}
+                            />
+                            <span className={`text-[11px] font-medium transition-colors ${formData.subjects.includes(s) ? "text-black font-bold" : "text-gray-500"}`}>{s}</span>
+                          </label>
+                        ))}
+                      </div>
                     </section>
                     <section>
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Medium of Instruction</label>
@@ -427,7 +499,29 @@ export default function App() {
                   </div>
 
                   <section>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 block">Question Distribution (Quantities)</label>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block">Question Distribution (Quantities)</label>
+                      <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-xl">
+                        <input 
+                          type="number" 
+                          placeholder="Qty"
+                          className="w-12 px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-bold text-center"
+                          id="bulkQty"
+                          min="0"
+                          max="200"
+                        />
+                        <button 
+                          onClick={() => {
+                            const val = parseInt((document.getElementById('bulkQty') as HTMLInputElement).value) || 0;
+                            const newTypes = formData.questionTypes.map(t => ({ ...t, count: val }));
+                            setFormData({...formData, questionTypes: newTypes});
+                          }}
+                          className="bg-black text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-all"
+                        >
+                          Quick Set All
+                        </button>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {formData.questionTypes.map((type, idx) => (
                         <div key={type.id} className="flex items-center gap-3 p-4 rounded-2xl bg-gray-50 border border-transparent hover:border-gray-200 transition-all">
@@ -438,7 +532,7 @@ export default function App() {
                           <input 
                             type="number" 
                             min="0"
-                            max="50"
+                            max="200"
                             className="w-16 px-2 py-2 bg-white border border-gray-200 rounded-xl text-center font-bold focus:ring-2 focus:ring-black"
                             value={type.count}
                             onChange={(e) => {
@@ -460,8 +554,8 @@ export default function App() {
                   <h3 className="text-lg font-bold mb-6">Execution Summary</h3>
                   <div className="space-y-4 mb-8">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Subject</span>
-                      <span className="font-bold">{formData.subject}</span>
+                      <span className="text-gray-500">Subjects</span>
+                      <span className="font-bold text-right">{formData.subjects.join(", ")}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Grade</span>
@@ -535,6 +629,24 @@ export default function App() {
                         <CreditCard className="w-8 h-8" />
                       </div>
                       <h2 className="text-2xl font-bold mb-2">Secure Generation Fee</h2>
+                      {!config?.isConfigured && (
+                        <div className="w-full bg-red-50 p-4 rounded-2xl mb-4 border border-red-100 flex items-start gap-3">
+                          <AlertCircle className="text-red-500 w-5 h-5 shrink-0" />
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-red-800">Gateway Not Configured</p>
+                            <p className="text-[10px] text-red-600">Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to the Secrets panel to enable payments.</p>
+                          </div>
+                        </div>
+                      )}
+                      {config?.razorpayKeyId?.startsWith("rzp_test") && (
+                        <div className="w-full bg-amber-50 p-4 rounded-2xl mb-4 border border-amber-100 flex items-start gap-3 text-left">
+                          <AlertCircle className="text-amber-600 w-5 h-5 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-amber-800">Test Mode Active</p>
+                            <p className="text-[10px] text-amber-600">Use test card 4111 1111 1111 1111 with any expiry and CVV to test.</p>
+                          </div>
+                        </div>
+                      )}
                       <p className="text-gray-500 mb-8">Pay the nominal fee to unlock and download your professionally generated paper with solutions.</p>
                       
                       <div className="bg-gray-50 rounded-2xl p-6 w-full mb-8">
@@ -542,7 +654,7 @@ export default function App() {
                           <span className="text-sm text-gray-500 uppercase tracking-widest font-bold">Total Amount</span>
                           <span className="text-3xl font-black text-black">₹{paymentAmount}</span>
                         </div>
-                        <p className="text-[10px] text-gray-400 text-left">Includes generation for {formData.subject}, {formData.grade} for {formData.schoolName}.</p>
+                        <p className="text-[10px] text-gray-400 text-left">Includes generation for {formData.subjects.join(", ")}, {formData.grade} for {formData.schoolName}.</p>
                       </div>
 
                       <div className="space-y-3 w-full">
@@ -583,7 +695,7 @@ export default function App() {
                   </div>
                   <div className="flex gap-3">
                      <button 
-                      onClick={() => exportToPDF(activeTab === "preview" ? paperRef : solutionRef, `${formData.subject}_Generated.pdf`)}
+                      onClick={() => exportToPDF(activeTab === "preview" ? paperRef : solutionRef, `${formData.subjects.join("_")}_Generated.pdf`)}
                       className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition-all"
                     >
                       <FileDown className="w-4 h-4" />
@@ -610,7 +722,7 @@ export default function App() {
                   <div className="text-center border-b-2 border-black pb-4 mb-6">
                     <h1 className="text-2xl font-bold uppercase tracking-tight mb-1">{generatedPaper?.schoolName}</h1>
                     <div className="flex justify-between text-sm font-bold mt-4 uppercase">
-                      <span>Subject: {generatedPaper?.subject}</span>
+                      <span>Subject(s): {generatedPaper?.subject}</span>
                       <span>Grade: {generatedPaper?.grade}</span>
                     </div>
                     <div className="flex justify-between text-sm font-bold mt-1 uppercase">

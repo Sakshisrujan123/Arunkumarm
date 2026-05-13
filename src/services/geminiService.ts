@@ -29,7 +29,7 @@ export interface QuestionPaper {
 export async function generateQuestionPaper(config: {
   schoolName: string;
   grade: string;
-  subject: string;
+  subjects: string[];
   board: string;
   language: string;
   totalMarks: number;
@@ -39,6 +39,7 @@ export async function generateQuestionPaper(config: {
 }): Promise<QuestionPaper> {
   const model = "gemini-3.1-pro-preview";
   
+  const subjectsString = config.subjects.join(", ");
   const questionDistribution = config.questionTypes
     .filter(q => q.count > 0)
     .map(q => `${q.count} x ${q.label}`)
@@ -47,7 +48,7 @@ export async function generateQuestionPaper(config: {
   const prompt = `Generate a professional school question paper with the following details:
 - School: ${config.schoolName}
 - Grade: ${config.grade}
-- Subject: ${config.subject}
+- Subjects: ${subjectsString} (Prepare a mixed paper containing questions from these subjects proportionally)
 - Board: ${config.board}
 - Language: ${config.language}
 - Total Marks: ${config.totalMarks}
