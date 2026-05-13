@@ -1,6 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const getApiKey = () => {
+  try {
+    // In Vite, process.env is replaced at build time if defined in vite.config.ts
+    // or we can fall back to import.meta.env
+    return (process.env.GEMINI_API_KEY) || "";
+  } catch (e) {
+    return "";
+  }
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export interface Question {
   text: string;

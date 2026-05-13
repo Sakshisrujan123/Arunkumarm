@@ -61,6 +61,15 @@ const SUBJECTS = [
   "Organizational Behavior",
   "Business Law",
   "Entrepreneurship",
+  "Financial Management",
+  "Strategic Management",
+  "Managerial Economics",
+  "Business Ethics",
+  "Business Communication",
+  "E-Commerce",
+  "Supply Chain Management",
+  "International Business",
+  "Corporate Finance",
   "Computer Science", 
   "General Knowledge",
   "Financial Accounting",
@@ -75,6 +84,19 @@ const SUBJECTS = [
   "Digital Marketing",
   "Microeconomics",
   "Macroeconomics",
+  "Research Methodology",
+  "Educational Technology",
+  "Counseling and Guidance",
+  "Special Education",
+  "Child Development and Pedagogy",
+  "Advanced Calculus",
+  "Topology",
+  "Abstract Algebra",
+  "Thermodynamics",
+  "Solid State Physics",
+  "Molecular Biology",
+  "Genetics",
+  "Biochemistry",
   "Hindi", 
   "Sanskrit", 
   "Kannada", 
@@ -137,112 +159,18 @@ export default function App() {
   const [isPaid, setIsPaid] = useState(false);
   const [activeTab, setActiveTab] = useState<"form" | "preview" | "solutions">("form");
   const [isPaying, setIsPaying] = useState(false);
-  const [config, setConfig] = useState<{ razorpayKeyId: string | null; isConfigured: boolean } | null>(null);
-
-  React.useEffect(() => {
-    fetch("/api/config")
-      .then(res => res.json())
-      .then(data => setConfig(data))
-      .catch(err => console.error("Config fetch failed", err));
-  }, []);
 
   const paperRef = useRef<HTMLDivElement>(null);
   const solutionRef = useRef<HTMLDivElement>(null);
 
   const paymentAmount = formData.totalMarks < 50 ? 50 : 100;
+  const UPI_ID = "arunmjewaragi@okaxis"; 
+  const UPI_NAME = "Arun M Jewaragi";
 
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handlePayment = async () => {
+  const handleSimplePayment = () => {
     setIsPaying(true);
-    const res = await loadRazorpayScript();
-
-    if (!res) {
-      alert("Razorpay SDK failed to load. Are you online?");
-      setIsPaying(false);
-      return;
-    }
-
-    // Create Order on Server
-    try {
-      const response = await fetch("/api/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: paymentAmount }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Failed to create payment order");
-      }
-
-      const options = {
-        key: config?.razorpayKeyId || "rzp_test_placeholder",
-        currency: data.currency,
-        amount: data.amount.toString(),
-        order_id: data.id,
-        name: "PaperQuest AI",
-        description: `QP for ${formData.subjects.join(", ")} - ${formData.grade}`,
-        image: "/favicon.ico",
-        handler: async function (response: any) {
-          // This runs on successful payment modal completion
-          // Now we must verify it on the server
-          try {
-            const verifyRes = await fetch("/api/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            }).then((t) => t.json());
-
-            if (verifyRes.success) {
-              setIsPaid(true);
-              setShowPayment(false);
-              setIsPaying(false);
-              alert("Payment Verified! Your paper is now ready for download.");
-            } else {
-              alert("Payment verification failed: " + verifyRes.message);
-              setIsPaying(false);
-            }
-          } catch (err) {
-            console.error("Verification Error:", err);
-            alert("Error verifying payment.");
-            setIsPaying(false);
-          }
-        },
-        prefill: {
-          name: "Educator",
-          email: "educator@example.com",
-          contact: "9999999999",
-        },
-        theme: {
-          color: "#000000",
-        },
-      };
-
-      const paymentObject = new (window as any).Razorpay(options);
-      paymentObject.on("payment.failed", function (response: any) {
-        alert("Payment Failed: " + response.error.reason);
-        setIsPaying(false);
-      });
-      paymentObject.open();
-    } catch (error) {
-      console.error("Payment setup failed:", error);
-      alert("Payment gateway communication error.");
-      setIsPaying(false);
-    }
+    // In a real app we'd wait for confirm, here we just show the QR
+    // The "I have paid" logic is in the UI
   };
 
   const handleGenerate = async () => {
@@ -338,7 +266,8 @@ export default function App() {
               <p className="text-xs text-gray-500 font-mono uppercase tracking-wider">Professional QP Generator</p>
             </div>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="flex gap-4">
             {generatedPaper && (
               <div className="flex bg-gray-100 p-1 rounded-lg">
                 <button 
@@ -361,6 +290,7 @@ export default function App() {
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
       </header>
@@ -623,52 +553,36 @@ export default function App() {
                     animate={{ scale: 1, opacity: 1 }}
                     className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl overflow-hidden relative"
                   >
-                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-400 to-cyan-400"></div>
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 to-indigo-400"></div>
                     <div className="flex flex-col items-center text-center">
-                      <div className="bg-emerald-100 p-4 rounded-full mb-6 text-emerald-600">
-                        <CreditCard className="w-8 h-8" />
+                      <div className="bg-indigo-100 p-4 rounded-full mb-4 text-indigo-600">
+                        <Printer className="w-8 h-8" />
                       </div>
-                      <h2 className="text-2xl font-bold mb-2">Secure Generation Fee</h2>
-                      {!config?.isConfigured && (
-                        <div className="w-full bg-red-50 p-4 rounded-2xl mb-4 border border-red-100 flex items-start gap-3">
-                          <AlertCircle className="text-red-500 w-5 h-5 shrink-0" />
-                          <div className="text-left">
-                            <p className="text-xs font-bold text-red-800">Gateway Not Configured</p>
-                            <p className="text-[10px] text-red-600">Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to the Secrets panel to enable payments.</p>
-                          </div>
-                        </div>
-                      )}
-                      {config?.razorpayKeyId?.startsWith("rzp_test") && (
-                        <div className="w-full bg-amber-50 p-4 rounded-2xl mb-4 border border-amber-100 flex items-start gap-3 text-left">
-                          <AlertCircle className="text-amber-600 w-5 h-5 shrink-0" />
-                          <div>
-                            <p className="text-xs font-bold text-amber-800">Test Mode Active</p>
-                            <p className="text-[10px] text-amber-600">Use test card 4111 1111 1111 1111 with any expiry and CVV to test.</p>
-                          </div>
-                        </div>
-                      )}
-                      <p className="text-gray-500 mb-8">Pay the nominal fee to unlock and download your professionally generated paper with solutions.</p>
+                      <h2 className="text-2xl font-bold mb-2">Unlock Documentation</h2>
+                      <p className="text-gray-500 text-sm mb-6">Scan the UPI QR code below to pay the service fee and download your paper.</p>
                       
-                      <div className="bg-gray-50 rounded-2xl p-6 w-full mb-8">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm text-gray-500 uppercase tracking-widest font-bold">Total Amount</span>
-                          <span className="text-3xl font-black text-black">₹{paymentAmount}</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 text-left">Includes generation for {formData.subjects.join(", ")}, {formData.grade} for {formData.schoolName}.</p>
+                      <div className="bg-gray-50 rounded-2xl p-6 w-full mb-6 flex flex-col items-center">
+                         <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(UPI_NAME)}&am=${paymentAmount}&cu=INR&tn=PaperQuest_AI_Generation`)}`} 
+                            alt="Payment QR" 
+                            className="w-40 h-40 mb-4 border-4 border-white shadow-sm"
+                         />
+                         <div className="flex justify-between w-full items-center">
+                           <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">Amount</span>
+                           <span className="text-2xl font-black text-black">₹{paymentAmount}</span>
+                         </div>
                       </div>
 
                       <div className="space-y-3 w-full">
                         <button 
-                          onClick={handlePayment}
-                          disabled={isPaying}
-                          className="w-full bg-black text-white py-4 rounded-2xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:bg-gray-400"
+                          onClick={() => {
+                            setIsPaid(true);
+                            setShowPayment(false);
+                            alert("Payment Confirmed! You can now download the paper.");
+                          }}
+                          className="w-full bg-black text-white py-4 rounded-2xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
-                          {isPaying ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white"></div>
-                          ) : (
-                            <CreditCard className="w-5 h-5" />
-                          )}
-                          {isPaying ? "Opening Gateway..." : `Pay ₹${paymentAmount} via UPI / Card`}
+                          I Have Paid - Unlock Now
                         </button>
                         <button 
                           onClick={() => {
@@ -678,7 +592,7 @@ export default function App() {
                           }}
                           className="w-full bg-transparent text-gray-400 py-3 rounded-2xl text-sm font-medium hover:text-red-500 transition-all font-mono"
                         >
-                          CANCEL GENERATION
+                          CANCEL & RESET
                         </button>
                       </div>
                     </div>
