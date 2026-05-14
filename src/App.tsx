@@ -12,7 +12,8 @@ import {
   School,
   Languages,
   Printer,
-  FileDown
+  FileDown,
+  MessageSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { generateQuestionPaper, QuestionPaper as QPType } from "./services/geminiService";
@@ -158,19 +159,29 @@ export default function App() {
   const [showPayment, setShowPayment] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [activeTab, setActiveTab] = useState<"form" | "preview" | "solutions">("form");
-  const [isPaying, setIsPaying] = useState(false);
+  const [unlockCode, setUnlockCode] = useState("");
+  const [requestId, setRequestId] = useState("");
 
   const paperRef = useRef<HTMLDivElement>(null);
   const solutionRef = useRef<HTMLDivElement>(null);
 
-  const paymentAmount = formData.totalMarks < 50 ? 50 : 100;
-  const UPI_ID = "arunmjewaragi@okaxis"; 
-  const UPI_NAME = "Arun M Jewaragi";
+  const [isCopying, setIsCopying] = useState(false);
 
-  const handleSimplePayment = () => {
-    setIsPaying(true);
-    // In a real app we'd wait for confirm, here we just show the QR
-    // The "I have paid" logic is in the UI
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(requestId);
+    setIsCopying(true);
+    setTimeout(() => setIsCopying(false), 2000);
+  };
+
+  const handleUnlock = () => {
+    // The unlock code format is PQ-[REQUEST_ID]-ARUN
+    if (unlockCode.toUpperCase().trim() === `PQ-${requestId}-ARUN`.toUpperCase()) {
+      setIsPaid(true);
+      setShowPayment(false);
+      alert("Verification successful! Paper unlocked.");
+    } else {
+      alert("Invalid unlock code. Please contact the administrator.");
+    }
   };
 
   const handleGenerate = async () => {
@@ -182,6 +193,7 @@ export default function App() {
     try {
       const paper = await generateQuestionPaper(formData);
       setGeneratedPaper(paper);
+      setRequestId(Math.random().toString(36).substring(2, 8).toUpperCase());
       setShowPayment(true);
       setActiveTab("preview");
     } catch (error) {
@@ -228,13 +240,13 @@ export default function App() {
                 new TextRun({ text: `Time: ${generatedPaper.timeAllowed} | Max Marks: ${generatedPaper.totalMarks}`, bold: true }),
               ],
             }),
-            ...generatedPaper.sections.flatMap((section) => [
+            ...(generatedPaper?.sections || []).flatMap((section) => [
               new Paragraph({
                 text: `${section.title} (${section.marksPerQuestion} Marks each)`,
                 heading: HeadingLevel.HEADING_2,
                 spacing: { before: 400 },
               }),
-              ...section.questions.map((q, i) => new Paragraph({
+              ...(section.questions || []).map((q, i) => new Paragraph({
                 children: [
                   new TextRun({ text: `Q${i + 1}. ${q.text}` }),
                   new TextRun({ text: ` [${q.marks}]`, bold: true }),
@@ -502,8 +514,8 @@ export default function App() {
                       </div>
                     )}
                     <div className="flex justify-between text-sm pt-4 border-t border-gray-100">
-                      <span className="text-gray-500">Service Fee</span>
-                      <span className="font-bold text-emerald-600">₹{paymentAmount}</span>
+                      <span className="text-gray-500">Service</span>
+                      <span className="font-bold text-emerald-600">Premium Generation</span>
                     </div>
                   </div>
                   
@@ -558,37 +570,65 @@ export default function App() {
                       <div className="bg-indigo-100 p-4 rounded-full mb-4 text-indigo-600">
                         <Printer className="w-8 h-8" />
                       </div>
-                      <h2 className="text-2xl font-bold mb-2">Unlock Documentation</h2>
-                      <p className="text-gray-500 text-sm mb-6">Scan the UPI QR code below to pay the service fee and download your paper.</p>
+                      <h2 className="text-2xl font-bold mb-2">Verification Required</h2>
+                      <p className="text-gray-500 text-sm mb-6">Enter the activation code provided by the administrator to unlock your paper.</p>
                       
-                      <div className="bg-gray-50 rounded-2xl p-6 w-full mb-6 flex flex-col items-center">
-                         <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(UPI_NAME)}&am=${paymentAmount}&cu=INR&tn=PaperQuest_AI_Generation`)}`} 
-                            alt="Payment QR" 
-                            className="w-40 h-40 mb-4 border-4 border-white shadow-sm"
-                         />
-                         <div className="flex justify-between w-full items-center">
-                           <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">Amount</span>
-                           <span className="text-2xl font-black text-black">₹{paymentAmount}</span>
-                         </div>
+                      <div className="bg-gray-50 rounded-2xl p-6 w-full mb-6 text-left border border-gray-100">
+                        <div className="mb-4">
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Your Request ID</label>
+                            {isCopying && <span className="text-[10px] text-emerald-500 font-bold animate-fade-in">COPIED!</span>}
+                          </div>
+                          <div className="flex gap-2">
+                            <div className="bg-white border border-gray-200 px-4 py-3 rounded-xl font-mono font-bold text-lg text-black text-center tracking-widest flex-1">
+                              {requestId}
+                            </div>
+                            <button 
+                              onClick={handleCopyId}
+                              className="bg-white border border-gray-200 p-3 rounded-xl hover:bg-gray-50 transition-all text-gray-400 hover:text-black"
+                              title="Copy ID"
+                            >
+                              <Download className="w-5 h-5 rotate-180" /> {/* Using Download reversed as a copy-like icon if needed, or just TextRun */}
+                            </button>
+                          </div>
+                          <a 
+                            href={`https://wa.me/919986373413?text=${encodeURIComponent(`Hi Arun, my PaperQuest Request ID is *${requestId}*. Please provide the unlock code.`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-4 w-full bg-emerald-500 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all shadow-md active:scale-95"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            Get Code via WhatsApp
+                          </a>
+                          <p className="text-[10px] text-gray-400 mt-3 text-center leading-relaxed">Send the Request ID to your administrator (9986373413) to receive your unique unlock code.</p>
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-100">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Activation Code</label>
+                          <input 
+                            type="text"
+                            placeholder="Enter Code (e.g. PQ-XXXXXX-ARUN)"
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-black outline-none transition-all placeholder:font-normal placeholder:text-gray-300 uppercase"
+                            value={unlockCode}
+                            onChange={(e) => setUnlockCode(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-3 w-full">
                         <button 
-                          onClick={() => {
-                            setIsPaid(true);
-                            setShowPayment(false);
-                            alert("Payment Confirmed! You can now download the paper.");
-                          }}
+                          onClick={handleUnlock}
                           className="w-full bg-black text-white py-4 rounded-2xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
-                          I Have Paid - Unlock Now
+                          Unlock Document
                         </button>
                         <button 
                           onClick={() => {
                             setGeneratedPaper(null); 
                             setShowPayment(false); 
                             setActiveTab("form");
+                            setUnlockCode("");
                           }}
                           className="w-full bg-transparent text-gray-400 py-3 rounded-2xl text-sm font-medium hover:text-red-500 transition-all font-mono"
                         >
@@ -647,13 +687,13 @@ export default function App() {
 
                   {activeTab === "preview" ? (
                     <div className="paper-content space-y-6">
-                      {generatedPaper?.sections.map((section, sIdx) => (
+                      {generatedPaper?.sections?.map((section, sIdx) => (
                         <div key={sIdx} className="section">
                           <h2 className="text-sm border-y border-gray-300 py-1 font-bold uppercase mb-4 tracking-widest text-center">
                             Section {String.fromCharCode(65 + sIdx)}: {section.title} ({section.marksPerQuestion} Marks Each)
                           </h2>
                           <div className="space-y-4">
-                            {section.questions.map((q, qIdx) => (
+                            {section.questions?.map((q, qIdx) => (
                               <div key={qIdx} className="flex gap-3">
                                 <span className="font-bold shrink-0 min-w-[20px]">Q{qIdx + 1}.</span>
                                 <div className="flex-1">
@@ -678,11 +718,11 @@ export default function App() {
                   ) : (
                     <div className="solution-content space-y-8">
                        <h2 className="text-xl font-bold text-center underline mb-8">Solution Key & Marking Scheme</h2>
-                       {generatedPaper?.sections.map((section, sIdx) => (
+                       {generatedPaper?.sections?.map((section, sIdx) => (
                         <div key={sIdx} className="section">
                            <h3 className="text-sm font-bold uppercase mb-4">Section {String.fromCharCode(65 + sIdx)}</h3>
                            <div className="space-y-6">
-                            {section.questions.map((q, qIdx) => (
+                            {section.questions?.map((q, qIdx) => (
                               <div key={qIdx} className="border-l-2 border-gray-100 pl-4">
                                 <p className="text-sm font-bold">Ans {qIdx + 1}.</p>
                                 <p className="text-sm mt-1 text-emerald-800 font-medium">{q.answer}</p>
